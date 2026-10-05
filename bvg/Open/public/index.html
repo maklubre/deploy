@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Null Tr4sher — Web Panel</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg"></div>
+
+  <header>
+    <h1>⚡ Null Tr4sher <span>Web Panel</span></h1>
+    <div id="clock"></div>
+  </header>
+
+  <main>
+    <section class="cards">
+      <div class="card">
+        <h3>WhatsApp Status</h3>
+        <p id="waStatus" class="val">--</p>
+      </div>
+      <div class="card">
+        <h3>Runtime</h3>
+        <p id="uptime" class="val">--</p>
+      </div>
+      <div class="card">
+        <h3>RAM</h3>
+        <p id="ram" class="val">--</p>
+      </div>
+      <div class="card">
+        <h3>Total Sender</h3>
+        <p id="totalNumbers" class="val">--</p>
+      </div>
+      <div class="card">
+        <h3>Paired Users</h3>
+        <p id="totalPaired" class="val">--</p>
+      </div>
+      <div class="card">
+        <h3>Node</h3>
+        <p id="nodev" class="val">--</p>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="btnRestart">🔄 Restart WA</button>
+      <button id="btnClear" class="danger">🧹 Clear Session</button>
+      <button id="btnRefresh">♻️ Refresh</button>
+    </section>
+
+    <section class="lists">
+      <div class="list-box">
+        <h2>📱 Nomor WA</h2>
+        <ul id="numbersList"></ul>
+      </div>
+      <div class="list-box">
+        <h2>👥 Paired Users</h2>
+        <ul id="pairedList"></ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© Null Tr4sher — Created by <a href="https://t.me/TceSupportID" target="_blank">@TceSupportID</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

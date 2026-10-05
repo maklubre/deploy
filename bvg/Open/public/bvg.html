@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BVG Attack — Null Tr4sher</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout" id="layout"></div>
+<script src="app.js"></script>
+<script>
+(async () => {
+  if (!await requireAuth()) return;
+
+  document.getElementById("layout").innerHTML = `
+    ${renderSidebar("bvg")}
+    <main class="main">
+      <div class="topbar">
+        <h1>
+          <span class="h1-icon">${Icon.bvg}</span>
+          BVG Attack
+          <small>— Bug & Crash Panel</small>
+        </h1>
+
+        <div class="topbar-right">
+          <div class="user-chip">
+            <span class="chip-icon">${Icon.user}</span>
+            <span>Hai, <b>${getUser()}</b></span>
+            ${roleBadge()}
+          </div>
+          ${hamburgerBtn()}
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h2>Pilih Target Mode</h2>
+        <p class="desc">Pilih tipe target: nomor WhatsApp (DM) atau link grup.</p>
+
+        <div class="mode-select">
+          <button class="mode-btn active" data-mode="dm">
+            <span class="mode-icon">${Icon.phone}</span>
+            <span class="mode-text">
+              <b>Nomor WhatsApp</b>
+              <small>Attack DM / Personal</small>
+            </span>
+          </button>
+          <button class="mode-btn" data-mode="group">
+            <span class="mode-icon">${Icon.link}</span>
+            <span class="mode-text">
+              <b>Link Grup</b>
+              <small>Bot auto join & attack</small>
+            </span>
+          </button>
+        </div>
+
+        <div class="mode-input" id="input-dm">
+          <div class="form-group">
+            <label>Nomor Target</label>
+            <input type="text" id="targetDM" placeholder="628xxxxxxxxxx" />
+          </div>
+        </div>
+
+        <div class="mode-input hidden" id="input-group">
+          <div class="form-group">
+            <label>Link Invite Grup</label>
+            <input type="text" id="targetGroup" placeholder="https://chat.whatsapp.com/xxxxxxxx" />
+          </div>
+        </div>
+      </div>
+
+      <h2 style="margin-bottom:14px;font-family:'Archivo Black';font-size:16px;">Pilih Tipe Attack</h2>
+
+      <!-- DM ATTACKS -->
+      <div class="attack-grid" id="grid-dm">
+        <div class="attack-card" data-type="car">
+          <span class="badge">DM</span>
+          <div class="emoji">${Icon.car}</div>
+          <h3>CAR</h3>
+          <p>New crash bug via interactive payload</p>
+        </div>
+        <div class="attack-card" data-type="dbut">
+          <span class="badge">DM</span>
+          <div class="emoji">${Icon.bolt2}</div>
+          <h3>DBUT</h3>
+          <p>Delay Invisible — thumb + doc</p>
+        </div>
+        <div class="attack-card" data-type="pom">
+          <span class="badge">DM</span>
+          <div class="emoji">${Icon.freeze}</div>
+          <h3>POM</h3>
+          <p>Freeze chat — status broadcast</p>
+        </div>
+        <div class="attack-card" data-type="ios">
+          <span class="badge">DM</span>
+          <div class="emoji">${Icon.apple}</div>
+          <h3>IOS</h3>
+          <p>iOS Invisible — bot AI payload</p>
+        </div>
+      </div>
+
+      <!-- GROUP ATTACKS -->
+      <div class="attack-grid hidden" id="grid-group">
+        <div class="attack-card group-attack" data-type="doct">
+          <span class="badge">GRUP</span>
+          <div class="emoji">${Icon.doc}</div>
+          <h3>DOCT</h3>
+          <p>Bot join → spam document payload (blank chat)</p>
+        </div>
+        <div class="attack-card group-attack" data-type="dban">
+          <span class="badge">GRUP</span>
+          <div class="emoji">${Icon.ban}</div>
+          <h3>DBAN</h3>
+          <p>Bot join → trigger banned grup</p>
+        </div>
+      </div>
+
+      <div class="foot">
+        &copy; Null Tr4sher — <a href="https://t.me/TceSupportID" target="_blank">@TceSupportID</a>
+      </div>
+    </main>
+  `;
+
+  // ===== MODE SWITCH =====
+  let mode = "dm";
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      mode = btn.dataset.mode;
+
+      document.getElementById("input-dm").classList.toggle("hidden", mode !== "dm");
+      document.getElementById("input-group").classList.toggle("hidden", mode !== "group");
+      document.getElementById("grid-dm").classList.toggle("hidden", mode !== "dm");
+      document.getElementById("grid-group").classList.toggle("hidden", mode !== "group");
+    };
+  });
+
+  // ===== DM ATTACK (owner bebas, member wajib punya nomor) =====
+  document.querySelectorAll("#grid-dm .attack-card").forEach(card => {
+    card.onclick = async () => {
+      const target = document.getElementById("targetDM").value.trim();
+      const type = card.dataset.type;
+      if (!target) return toast("Masukkan nomor dulu", "err");
+      if (!/^\+?\d{7,15}$/.test(target)) return toast("Format nomor tidak valid", "err");
+      if (!confirm(`Jalankan ${type.toUpperCase()} → ${target}?`)) return;
+
+      try {
+        const r = await apiJSON("/api/attack", "POST", { type, target });
+        if (r.ok) toast(r.msg, "ok", 4000);
+        else toast(r.msg, "err");
+      } catch (e) { toast(e.message, "err"); }
+    };
+  });
+
+  // ===== GROUP ATTACK =====
+  document.querySelectorAll(".group-attack").forEach(card => {
+    card.onclick = async () => {
+      const link = document.getElementById("targetGroup").value.trim();
+      const type = card.dataset.type;
+      if (!link) return toast("Masukkan link grup dulu", "err");
+      if (!/chat\.whatsapp\.com\//i.test(link)) return toast("Link tidak valid", "err");
+      if (!confirm(`Bot akan join grup & ${type.toUpperCase()}?\n\n${link}`)) return;
+
+      try {
+        const r = await apiJSON("/api/bvg-group", "POST", { type, groupLink: link });
+        if (r.ok) toast(r.msg, "ok", 5000);
+        else toast(r.msg, "err");
+      } catch (e) { toast(e.message, "err"); }
+    };
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Users — Null Tr4sher</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout" id="layout"></div>
+<script src="app.js"></script>
+<script>
+(async () => {
+  if (!await requireAuth()) return;
+  if (!isOwner()) {
+    toast("Hanya owner bisa akses", "err");
+    setTimeout(() => location.href = "/dashboard", 1000);
+    return;
+  }
+
+  document.getElementById("layout").innerHTML = `
+    ${renderSidebar("users")}
+    <main class="main">
+      <div class="topbar">
+        <h1>
+          <span class="h1-icon">${Icon.users}</span>
+          User Manager
+          <small>— Kelola Akun Panel</small>
+        </h1>
+
+        <div class="topbar-right">
+          <div class="user-chip">
+            <span class="chip-icon">${Icon.user}</span>
+            <span>Hai, <b>${getUser()}</b></span>
+            ${roleBadge()}
+          </div>
+          ${hamburgerBtn()}
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h2>Buat Akun Baru</h2>
+        <p class="desc">Tersimpan di database/accounts.json</p>
+
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="newUser" placeholder="min 3 karakter" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="text" id="newPass" placeholder="min 4 karakter" />
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select id="newRole">
+            <option value="member">Member</option>
+            <option value="owner">Owner</option>
+          </select>
+        </div>
+
+        <button class="btn success" id="btnCreate">
+          <span class="btn-icon">${Icon.plus}</span> Buat Akun
+        </button>
+      </div>
+
+      <div class="list-box">
+        <h2>
+          <span class="h2-icon">${Icon.users}</span>
+          Daftar User
+          <span class="count" id="cntUsers">0</span>
+        </h2>
+        <ul id="usersList"><li class="empty">Loading...</li></ul>
+      </div>
+
+      <div class="foot">&copy; Null Tr4sher — <a href="https://t.me/TceSupportID" target="_blank">@TceSupportID</a></div>
+    </main>
+  `;
+
+  async function loadUsers() {
+    const list = await api("/api/users");
+    const ul = document.getElementById("usersList");
+    document.getElementById("cntUsers").textContent = list.length;
+
+    ul.innerHTML = list.length
+      ? list.map(u => `
+        <li>
+          <span class="list-item">
+            <span class="list-icon">${u.role === "owner" ? Icon.crown : Icon.user}</span>
+            <span class="list-text"><b>${u.username}</b><small>${u.role.toUpperCase()}</small></span>
+          </span>
+          ${u.username !== getUser()
+            ? `<button class="del" data-user="${u.username}">${Icon.trash}</button>`
+            : `<small style="opacity:.5;font-size:11px;">(kamu)</small>`}
+        </li>`).join("")
+      : '<li class="empty">Belum ada user</li>';
+
+    ul.querySelectorAll(".del").forEach(el => {
+      el.onclick = async () => {
+        if (!confirm("Hapus user " + el.dataset.user + "?")) return;
+        const r = await api("/api/users/" + el.dataset.user, { method: "DELETE" });
+        if (r.ok) { toast("User dihapus", "ok"); loadUsers(); }
+        else toast(r.msg, "err");
+      };
+    });
+  }
+
+  document.getElementById("btnCreate").onclick = async () => {
+    const username = document.getElementById("newUser").value.trim();
+    const password = document.getElementById("newPass").value;
+    const role = document.getElementById("newRole").value;
+    if (!username || !password) return toast("Isi semua field", "err");
+
+    const r = await apiJSON("/api/users", "POST", { username, password, role });
+    if (r.ok) {
+      toast("Akun dibuat", "ok");
+      document.getElementById("newUser").value = "";
+      document.getElementById("newPass").value = "";
+      loadUsers();
+    } else toast(r.msg, "err");
+  };
+
+  loadUsers();
+})();
+</script>
+</body>
+</html>

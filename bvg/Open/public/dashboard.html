@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard — Null Tr4sher</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout" id="layout"></div>
+<script src="app.js"></script>
+<script>
+(async () => {
+  if (!await requireAuth()) return;
+
+  document.getElementById("layout").innerHTML = `
+    ${renderSidebar("dashboard")}
+    <main class="main">
+      <div class="topbar">
+        <h1>
+          <span class="h1-icon">${Icon.chart}</span>
+          Dashboard
+          <small>— System Overview</small>
+        </h1>
+
+        <div class="topbar-right">
+          <div class="user-chip">
+            <span class="chip-icon">${Icon.user}</span>
+            <span>Hai, <b>${getUser()}</b></span>
+            ${roleBadge()}
+          </div>
+          ${hamburgerBtn()}
+        </div>
+      </div>
+
+      <section class="cards">
+        <div class="card" id="cardWA">
+          <div class="card-top"><div class="icon-box">${Icon.wa}</div><span class="card-tag">LIVE</span></div>
+          <h3>WhatsApp Status</h3>
+          <p class="val" id="waStatus">--</p>
+        </div>
+        <div class="card">
+          <div class="card-top"><div class="icon-box">${Icon.clock}</div></div>
+          <h3>Runtime</h3>
+          <p class="val" id="uptime">--</p>
+        </div>
+        <div class="card">
+          <div class="card-top"><div class="icon-box">${Icon.ram}</div></div>
+          <h3>RAM Usage</h3>
+          <p class="val" id="ram">--</p>
+        </div>
+        <div class="card">
+          <div class="card-top"><div class="icon-box">${Icon.phone}</div></div>
+          <h3>Nomor Aktif</h3>
+          <p class="val" id="totalNumbers">--</p>
+        </div>
+        <div class="card">
+          <div class="card-top"><div class="icon-box">${Icon.users}</div></div>
+          <h3>Paired Users</h3>
+          <p class="val" id="totalPaired">--</p>
+        </div>
+        <div class="card">
+          <div class="card-top"><div class="icon-box">${Icon.node}</div></div>
+          <h3>Node / OS</h3>
+          <p class="val" id="nodev">--</p>
+        </div>
+      </section>
+
+      <section class="actions">
+        <button class="btn btn-refresh" id="btnRefresh"><span class="btn-icon">${Icon.refresh}</span> Refresh</button>
+        ${isOwner() ? `
+          <button class="btn warn" id="btnRestart"><span class="btn-icon">${Icon.restart}</span> Restart WA</button>
+          <button class="btn danger" id="btnClear"><span class="btn-icon">${Icon.trash}</span> Clear Session</button>
+        ` : ""}
+      </section>
+
+      <section class="lists">
+        <div class="list-box">
+          <h2><span class="h2-icon">${Icon.phone}</span> Nomor WA <span class="count" id="cntNum">0</span></h2>
+          <ul id="numbersList"><li class="empty">Loading...</li></ul>
+        </div>
+        <div class="list-box">
+          <h2><span class="h2-icon">${Icon.users}</span> Paired Users <span class="count" id="cntPaired">0</span></h2>
+          <ul id="pairedList"><li class="empty">Loading...</li></ul>
+        </div>
+      </section>
+
+      <div class="foot">&copy; Null Tr4sher — <a href="https://t.me/TceSupportID" target="_blank">@TceSupportID</a></div>
+    </main>
+  `;
+
+  async function loadStatus() {
+    const d = await api("/api/status");
+    const wa = document.getElementById("waStatus");
+    wa.textContent = d.whatsappStatus ? "ONLINE" : "OFFLINE";
+    document.getElementById("cardWA").className = "card " + (d.whatsappStatus ? "ok" : "bad");
+    document.getElementById("uptime").textContent = fmtUptime(d.uptime);
+    document.getElementById("ram").textContent = fmtSize(d.memory);
+    document.getElementById("totalNumbers").textContent = d.totalNumbers;
+    document.getElementById("totalPaired").textContent = d.totalPaired;
+    document.getElementById("nodev").textContent = d.node;
+  }
+
+  async function loadNumbers() {
+    const list = await api("/api/numbers");
+    const ul = document.getElementById("numbersList");
+    document.getElementById("cntNum").textContent = list.length;
+    if (!list.length) { ul.innerHTML = '<li class="empty">Belum ada nomor</li>'; return; }
+
+    ul.innerHTML = list.map(n => {
+      const canDelete = isOwner() || n.owner === getUser();
+      return `
+        <li>
+          <span class="list-item">
+            <span class="list-icon">${Icon.phone}</span>
+            <span class="list-text"><b>${n.number}</b><small>owner: ${n.owner}</small></span>
+          </span>
+          ${canDelete
+            ? `<button class="del" data-num="${n.number}">${Icon.trash}</button>`
+            : `<small style="opacity:.4;font-size:10px;">—</small>`}
+        </li>`;
+    }).join("");
+
+    ul.querySelectorAll(".del").forEach(el => {
+      el.onclick = async () => {
+        if (!confirm("Hapus nomor " + el.dataset.num + "?")) return;
+        const r = await api("/api/numbers/" + el.dataset.num, { method: "DELETE" });
+        if (r.ok) { toast("Nomor dihapus", "ok"); loadNumbers(); loadStatus(); }
+        else toast(r.msg, "err");
+      };
+    });
+  }
+
+  async function loadPaired() {
+    const list = await api("/api/paired");
+    const ul = document.getElementById("pairedList");
+    document.getElementById("cntPaired").textContent = list.length;
+    ul.innerHTML = list.length
+      ? list.map(n => `<li><span class="list-item"><span class="list-icon">${Icon.user}</span><span class="list-text"><b>${n}</b></span></span></li>`).join("")
+      : '<li class="empty">Belum ada user</li>';
+  }
+
+  document.getElementById("btnRefresh").onclick = () => {
+    loadStatus(); loadNumbers(); loadPaired();
+    toast("Data di-refresh", "info");
+  };
+
+  const btnRestart = document.getElementById("btnRestart");
+  if (btnRestart) btnRestart.onclick = async () => {
+    if (!confirm("Restart WhatsApp session?")) return;
+    const r = await api("/api/restart-wa", { method: "POST" });
+    toast(r.ok ? "WA direstart" : "Gagal", r.ok ? "ok" : "err");
+  };
+  const btnClear = document.getElementById("btnClear");
+  if (btnClear) btnClear.onclick = async () => {
+    if (!confirm("Hapus session? Harus pair ulang!")) return;
+    const r = await api("/api/clear-session", { method: "POST" });
+    toast(r.ok ? "Session dihapus" : "Gagal", r.ok ? "ok" : "err");
+  };
+
+  loadStatus(); loadNumbers(); loadPaired();
+  setInterval(loadStatus, 5000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sender — Null Tr4sher</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout" id="layout"></div>
+<script src="app.js"></script>
+<script>
+(async () => {
+  if (!await requireAuth()) return;
+
+  document.getElementById("layout").innerHTML = `
+    ${renderSidebar("sender")}
+    <main class="main">
+      <div class="topbar">
+        <h1>
+          <span class="h1-icon">${Icon.sender}</span>
+          Sender Manager
+          <small>— WhatsApp Connections</small>
+        </h1>
+
+        <div class="topbar-right">
+          <div class="user-chip">
+            <span class="chip-icon">${Icon.user}</span>
+            <span>Hai, <b>${getUser()}</b></span>
+            ${roleBadge()}
+          </div>
+          ${hamburgerBtn()}
+        </div>
+      </div>
+
+      <section class="cards">
+        <div class="card" id="cardWA">
+          <div class="card-top"><div class="icon-box">${Icon.wa}</div></div>
+          <h3>Status WA</h3>
+          <p class="val" id="waStatus">--</p>
+        </div>
+        <div class="card">
+          <div class="card-top"><div class="icon-box">${Icon.phone}</div></div>
+          <h3>Total Nomor</h3>
+          <p class="val" id="totalNumbers">--</p>
+        </div>
+        <div class="card">
+          <div class="card-top"><div class="icon-box">${Icon.user}</div></div>
+          <h3>Nomor Milikmu</h3>
+          <p class="val" id="myNumbers">--</p>
+        </div>
+      </section>
+
+      <div class="form-card">
+        <h2>Tambah Nomor WA (Pairwa)</h2>
+        <p class="desc">Masukkan nomor WhatsApp. Kode pairing akan muncul di bawah.</p>
+        <div class="form-group">
+          <label>Nomor WhatsApp</label>
+          <input type="text" id="newNumber" placeholder="628123456789" />
+        </div>
+        <button class="btn success" id="btnPairwa">
+          <span class="btn-icon">${Icon.plus}</span> Tambah & Minta Code
+        </button>
+
+        <!-- PAIRING CODE DISPLAY -->
+        <div class="pairing-result hidden" id="pairingResult">
+          <div class="pairing-label">PAIRING CODE</div>
+          <div class="pairing-code" id="pairingCode" title="Tap & tahan untuk select">----</div>
+          <div class="pairing-hint">
+            WhatsApp → titik 3 (⋮) → Perangkat Tertaut → Tautkan dengan nomor telepon → masukkan kode di atas
+          </div>
+          <button class="btn btn-refresh" id="btnCopyCode">
+            <span class="btn-icon">${Icon.plus}</span> Copy Code
+          </button>
+        </div>
+      </div>
+
+      <section class="actions">
+        <button class="btn btn-refresh" id="btnRefresh">
+          <span class="btn-icon">${Icon.refresh}</span> Refresh
+        </button>
+      </section>
+
+      <div class="list-box">
+        <h2>
+          <span class="h2-icon">${Icon.phone}</span>
+          Daftar Nomor WhatsApp
+          <span class="count" id="cntNum">0</span>
+        </h2>
+        <ul id="numbersList"><li class="empty">Loading...</li></ul>
+      </div>
+
+      <div class="foot">
+        &copy; Null Tr4sher — <a href="https://t.me/TceSupportID" target="_blank">@TceSupportID</a>
+      </div>
+    </main>
+  `;
+
+  // ===== LOAD STATUS =====
+  async function loadStatus() {
+    const d = await api("/api/status");
+    document.getElementById("waStatus").textContent = d.whatsappStatus ? "ONLINE" : "OFFLINE";
+    document.getElementById("cardWA").className = "card " + (d.whatsappStatus ? "ok" : "bad");
+    document.getElementById("totalNumbers").textContent = d.totalNumbers;
+    document.getElementById("myNumbers").textContent = d.myNumbers || 0;
+  }
+
+  // ===== LOAD NUMBERS =====
+  async function loadNumbers() {
+    const list = await api("/api/numbers");
+    const ul = document.getElementById("numbersList");
+    document.getElementById("cntNum").textContent = list.length;
+    if (!list.length) { ul.innerHTML = '<li class="empty">Belum ada nomor</li>'; return; }
+
+    ul.innerHTML = list.map(n => {
+      const canDelete = isOwner() || n.owner === getUser();
+      return `
+        <li>
+          <span class="list-item">
+            <span class="list-icon">${Icon.phone}</span>
+            <span class="list-text"><b>${n.number}</b><small>owner: ${n.owner}${n.owner === getUser() ? " (kamu)" : ""}</small></span>
+          </span>
+          ${canDelete
+            ? `<button class="del" data-num="${n.number}">${Icon.trash}</button>`
+            : `<small style="opacity:.4;font-size:10px;">—</small>`}
+        </li>`;
+    }).join("");
+
+    ul.querySelectorAll(".del").forEach(el => {
+      el.onclick = async () => {
+        const num = el.dataset.num;
+        if (!confirm("Hapus nomor " + num + "?")) return;
+        try {
+          const r = await api("/api/numbers/" + num, { method: "DELETE" });
+          if (r.ok) { toast(r.msg || "Nomor dihapus", "ok"); loadNumbers(); loadStatus(); }
+          else toast(r.msg || "Gagal", "err");
+        } catch (e) { toast(e.message, "err"); }
+      };
+    });
+  }
+
+  // ===== PAIRWA BUTTON =====
+  document.getElementById("btnPairwa").onclick = async () => {
+    const num = document.getElementById("newNumber").value.trim();
+    if (!num) return toast("Masukkan nomor dulu", "err");
+    if (!/^\+?\d{7,15}$/.test(num.replace(/\D/g, ""))) return toast("Nomor tidak valid", "err");
+
+    const btn = document.getElementById("btnPairwa");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-icon">⏳</span> Memproses...';
+
+    try {
+      const r = await apiJSON("/api/pairwa", "POST", { number: num });
+
+      if (r.ok && r.code) {
+        // Tampilkan pairing code
+        const box = document.getElementById("pairingResult");
+        const codeEl = document.getElementById("pairingCode");
+        codeEl.textContent = r.code;
+        box.classList.remove("hidden");
+        toast("Pairing code dibuat", "ok", 4000);
+        document.getElementById("newNumber").value = "";
+      } else if (r.ok && r.connected) {
+        toast("WhatsApp sudah terkoneksi", "ok", 3000);
+        document.getElementById("newNumber").value = "";
+      } else if (r.ok) {
+        toast(r.msg || "Nomor ditambahkan", "ok", 4000);
+        document.getElementById("newNumber").value = "";
+      } else {
+        toast(r.msg || "Gagal", "err");
+      }
+      loadNumbers(); loadStatus();
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<span class="btn-icon">${Icon.plus}</span> Tambah & Minta Code`;
+    }
+  };
+
+  // ===== COPY CODE (dengan fallback untuk HTTP) =====
+  document.getElementById("btnCopyCode").onclick = async () => {
+    const rawCode = document.getElementById("pairingCode").textContent.trim();
+    const cleanCode = rawCode.replace(/-/g, "");
+
+    if (!cleanCode || cleanCode === "----") {
+      toast("Belum ada kode", "err");
+      return;
+    }
+
+    let success = false;
+
+    // 1️⃣ Coba modern Clipboard API (butuh HTTPS)
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(cleanCode);
+        success = true;
+      } catch (e) { /* fallback */ }
+    }
+
+    // 2️⃣ Fallback pakai execCommand (jalan di HTTP)
+    if (!success) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = cleanCode;
+        ta.style.position = "fixed";
+        ta.style.top = "-1000px";
+        ta.style.left = "-1000px";
+        ta.style.opacity = "0";
+        ta.setAttribute("readonly", "");
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, 999999);
+
+        success = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch (e) { /* fallback manual */ }
+    }
+
+    // 3️⃣ Kalau masih gagal → prompt manual
+    if (!success) {
+      window.prompt("Copy kode ini manual (Ctrl+C / tap & hold):", cleanCode);
+      return;
+    }
+
+    // Sukses — toast + tombol berubah sebentar
+    toast("Code berhasil dicopy", "ok", 2500);
+    const btn = document.getElementById("btnCopyCode");
+    const original = btn.innerHTML;
+    btn.innerHTML = `<span class="btn-icon">✓</span> Tersalin!`;
+    setTimeout(() => { btn.innerHTML = original; }, 1800);
+  };
+
+  // ===== AUTO-SELECT CODE SAAT DIKLIK =====
+  document.getElementById("pairingCode").onclick = function() {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(this);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      toast("Kode di-select — tap & tahan untuk copy", "info", 2000);
+    } catch (e) {}
+  };
+
+  // ===== REFRESH BUTTON =====
+  document.getElementById("btnRefresh").onclick = () => {
+    loadStatus(); loadNumbers();
+    toast("Refreshed", "info");
+  };
+
+  // ===== INIT =====
+  loadStatus(); loadNumbers();
+  setInterval(loadStatus, 5000);
+})();
+</script>
+</body>
+</html>

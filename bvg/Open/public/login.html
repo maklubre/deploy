@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Login — Null Tr4sher</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="login-wrap">
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor"/>
+      </svg>
+    </div>
+    <h1>NULL TR4SHER</h1>
+    <p class="sub">Web Control Panel</p>
+
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="username" name="username" placeholder="Masukkan username" required autocomplete="username" />
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" name="password" placeholder="Masukkan password" required autocomplete="current-password" />
+      <span class="toggle" id="togglePass">
+        <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </span>
+    </div>
+
+    <button type="submit" class="btn-primary" id="btnLogin">LOGIN</button>
+    <div class="login-err" id="err"></div>
+
+    <div class="login-foot">
+      &copy; 2025 <a href="https://t.me/TceSupportID" target="_blank">@TceSupportID</a>
+    </div>
+  </form>
+</div>
+
+<script>
+(async () => {
+  try {
+    const tok = localStorage.getItem("nted_token");
+    const headers = tok ? { "Authorization": "Bearer " + tok } : {};
+    const r = await fetch("/api/me", { credentials: "include", headers, cache: "no-store" });
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.ok) { location.href = "/dashboard"; return; }
+    }
+  } catch {}
+})();
+
+const toggle = document.getElementById("togglePass");
+const passInput = document.getElementById("password");
+const eyeIcon = document.getElementById("eyeIcon");
+
+toggle.onclick = () => {
+  const isPass = passInput.type === "password";
+  passInput.type = isPass ? "text" : "password";
+  eyeIcon.innerHTML = isPass
+    ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`
+    : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+};
+
+document.getElementById("loginForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("btnLogin");
+  const err = document.getElementById("err");
+  err.textContent = "";
+  btn.textContent = "MEMPROSES...";
+  btn.disabled = true;
+
+  try {
+    const r = await fetch("/api/login", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.msg || "Login gagal");
+
+    localStorage.setItem("nted_token", d.token);
+    localStorage.setItem("nted_user",  d.user);
+    localStorage.setItem("nted_role",  d.role);
+
+    btn.textContent = "BERHASIL";
+    setTimeout(() => location.href = "/dashboard", 300);
+  } catch (ex) {
+    err.textContent = ex.message;
+    btn.textContent = "LOGIN";
+    btn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
